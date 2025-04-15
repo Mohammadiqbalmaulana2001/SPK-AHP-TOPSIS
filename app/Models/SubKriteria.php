@@ -12,7 +12,7 @@ class SubKriteria extends Model
 
     protected $fillable = [
         'kriteria_id', 
-        'kategori_id',
+        'tipe',
         'kode',
         'nama', 
         'bobot',
@@ -23,12 +23,7 @@ class SubKriteria extends Model
     {
         return $this->belongsTo(Kriteria::class);
     }
-
-    public function kategori(): BelongsTo
-    {
-        return $this->belongsTo(Kategori::class);
-    }
-
+    
     public function penilaians(): HasMany
     {
         return $this->hasMany(Penilaian::class);

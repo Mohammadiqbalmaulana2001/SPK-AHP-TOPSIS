@@ -3,13 +3,18 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\KriteriaResource\Pages;
+use App\Filament\Resources\KriteriaResource\RelationManagers;
+use App\Filament\Resources\SubKriteriaResource;
 use App\Models\Kriteria;
+use App\Services\AHPService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class KriteriaResource extends Resource
 {
@@ -34,13 +39,6 @@ class KriteriaResource extends Resource
                 Forms\Components\TextInput::make('nama')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('bobot')
-                    ->required()
-                    ->numeric()
-                    ->default(0)
-                    ->minValue(0)
-                    ->maxValue(100)
-                    ->step(0.01),
                 Forms\Components\Select::make('tipe')
                     ->required()
                     ->options([
@@ -60,7 +58,7 @@ class KriteriaResource extends Resource
                 Tables\Columns\TextColumn::make('nama')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('bobot')
-                    ->numeric()
+                    ->numeric(decimalPlaces: 4)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('tipe')
                     ->badge()
@@ -85,7 +83,11 @@ class KriteriaResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('subkriteria')
+                    ->label('Subkriteria')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->color('info')
+                    ->url(fn (Kriteria $record): string => SubKriteriaResource::getUrl('index', ['tableFilters[kriteria_id][value]' => $record->id])),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -109,7 +111,7 @@ class KriteriaResource extends Resource
             'index' => Pages\ListKriterias::route('/'),
             'create' => Pages\CreateKriteria::route('/create'),
             // 'view' => Pages\ViewKriteria::route('/{record}'),
-            'edit' => Pages\EditKriteria::route('/{record}/edit'),
+            // 'edit' => Pages\EditKriteria::route('/{record}/edit'),
         ];
     }
 }

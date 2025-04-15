@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SubKriteriaResource\Pages;
-use App\Models\Kategori;
 use App\Models\Kriteria;
 use App\Models\SubKriteria;
 use Filament\Forms;
@@ -21,9 +20,14 @@ class SubKriteriaResource extends Resource
     
     protected static ?string $navigationLabel = 'Sub Kriteria';
     
-    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?string $navigationGroup = 'Data Master';
     
     protected static ?int $navigationSort = 4;
+    
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {
@@ -33,38 +37,29 @@ class SubKriteriaResource extends Resource
                     ->label('Kriteria')
                     ->options(Kriteria::all()->pluck('nama', 'id'))
                     ->searchable()
-                    ->required()
-                    ->reactive()
-                    ->afterStateUpdated(fn (callable $set) => $set('kategori_id', null)),
-                Forms\Components\Select::make('kategori_id')
-                    ->label('Kategori')
-                    ->options(function (callable $get) {
-                        $kriteriaId = $get('kriteria_id');
-                        if (!$kriteriaId) {
-                            return [];
-                        }
-                        return Kategori::where('kriteria_id', $kriteriaId)->pluck('nama', 'id');
-                    })
-                    ->searchable()
                     ->required(),
                 Forms\Components\TextInput::make('kode')
+                    ->label('Kode')
                     ->required()
                     ->maxLength(255)
                     ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('nama')
+                    ->label('Nama')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('bobot')
-                    ->required()
-                    ->numeric()
-                    ->default(0)
-                    ->minValue(0)
-                    ->maxValue(100)
-                    ->step(0.01),
+                Forms\Components\Select::make('tipe')
+                    ->label('Tipe')
+                    ->options([
+                        'benefit' => 'Benefit',
+                        'cost' => 'Cost',
+                    ])
+                    ->required(),
                 Forms\Components\TextInput::make('nilai')
+                    ->label('Nilai')
                     ->numeric()
                     ->minValue(0)
-                    ->step(0.01),
+                    ->step(0.01)
+                    ->helperText('Nilai numerik dari sub kriteria ini'),
             ]);
     }
 
@@ -73,25 +68,37 @@ class SubKriteriaResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('kode')
+                    ->label('Kode')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('nama')
+                    ->label('Nama')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('kriteria.nama')
+                    ->label('Kriteria')
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('kategori.nama')
-                    ->sortable()
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('tipe')
+                    ->label('Tipe')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'benefit' => 'success',
+                        'cost' => 'danger',
+                    }),
                 Tables\Columns\TextColumn::make('bobot')
+                    ->label('Bobot')
+                    ->numeric(decimalPlaces: 4)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nilai')
+                    ->label('Nilai')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Diperbarui Pada')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -100,18 +107,21 @@ class SubKriteriaResource extends Resource
                 Tables\Filters\SelectFilter::make('kriteria_id')
                     ->label('Kriteria')
                     ->options(Kriteria::all()->pluck('nama', 'id')),
-                Tables\Filters\SelectFilter::make('kategori_id')
-                    ->label('Kategori')
-                    ->options(Kategori::all()->pluck('nama', 'id')),
+                Tables\Filters\SelectFilter::make('tipe')
+                    ->label('Tipe')
+                    ->options([
+                        'benefit' => 'Benefit',
+                        'cost' => 'Cost',
+                    ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // Tables\Actions\ViewAction::make()->label('Lihat'),
+                Tables\Actions\EditAction::make()->label('Edit'),
+                Tables\Actions\DeleteAction::make()->label('Hapus'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()->label('Hapus yang Dipilih'),
                 ]),
             ]);
     }
@@ -127,9 +137,9 @@ class SubKriteriaResource extends Resource
     {
         return [
             'index' => Pages\ListSubKriterias::route('/'),
-            'create' => Pages\CreateSubKriteria::route('/create'),
+            // 'create' => Pages\CreateSubKriteria::route('/create'),
             // 'view' => Pages\ViewSubKriteria::route('/{record}'),
-            'edit' => Pages\EditSubKriteria::route('/{record}/edit'),
+            // 'edit' => Pages\EditSubKriteria::route('/{record}/edit'),
         ];
     }
 }

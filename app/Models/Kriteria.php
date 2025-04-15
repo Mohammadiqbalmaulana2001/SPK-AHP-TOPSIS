@@ -20,9 +20,4 @@ class Kriteria extends Model
     {
         return $this->hasMany(SubKriteria::class);
     }
-
-    public function kategoris(): HasMany
-    {
-        return $this->hasMany(Kategori::class);
-    }
 }

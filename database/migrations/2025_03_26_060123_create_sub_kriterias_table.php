@@ -13,12 +13,10 @@ return new class extends Migration
             $table->foreignId('kriteria_id')
                   ->constrained('kriterias')
                   ->onDelete('cascade');
-            $table->foreignId('kategori_id')
-                  ->constrained('kategoris')
-                  ->onDelete('cascade');
+            $table->enum('tipe', ['benefit', 'cost'])->default('benefit');
             $table->string('kode')->unique();
             $table->string('nama');
-            $table->decimal('bobot', 5, 2)->default(0);
+            $table->decimal('bobot');
             $table->decimal('nilai', 10, 2)->nullable();
             $table->timestamps();
         });
