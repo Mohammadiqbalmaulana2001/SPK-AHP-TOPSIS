@@ -7,6 +7,7 @@ use App\Filament\Resources\KriteriaResource\RelationManagers;
 use App\Filament\Resources\SubKriteriaResource;
 use App\Models\Kriteria;
 use App\Services\AHPService;
+use App\Filament\Pages\AHPKriteriaComparison;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -109,7 +110,7 @@ class KriteriaResource extends Resource
     {
         return [
             'index' => Pages\ListKriterias::route('/'),
-            'create' => Pages\CreateKriteria::route('/create'),
+            // 'create' => Pages\CreateKriteria::route('/create'),
             // 'view' => Pages\ViewKriteria::route('/{record}'),
             // 'edit' => Pages\EditKriteria::route('/{record}/edit'),
         ];

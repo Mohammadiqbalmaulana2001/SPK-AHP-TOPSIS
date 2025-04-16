@@ -9,6 +9,8 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
+use Filament\Actions\Action;
+use App\Filament\Resources\KriteriaResource;
 
 class AHPKriteriaComparison extends Page
 {
@@ -16,9 +18,11 @@ class AHPKriteriaComparison extends Page
     
     protected static ?string $navigationLabel = 'Perbandingan Kriteria (AHP)';
     
-    protected static ?string $navigationGroup = 'Analisis';
+    // Tambahkan properti title
+    protected static ?string $title = 'Pembobotan Metode AHP';
     
-    protected static ?int $navigationSort = 1;
+    // Sembunyikan dari navigasi dengan mengatur shouldRegisterNavigation ke false
+    protected static bool $shouldRegisterNavigation = false;
     
     protected static string $view = 'filament.pages.ahp-kriteria-comparison';
     
@@ -30,6 +34,17 @@ class AHPKriteriaComparison extends Page
     {
         $this->kriterias = Kriteria::all();
         $this->initializeComparisonValues();
+    }
+    
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('back')
+                ->label('Kembali ke Kriteria')
+                ->icon('heroicon-o-arrow-left')
+                ->url(fn (): string => KriteriaResource::getUrl('index'))
+                ->color('secondary'),
+        ];
     }
     
     protected function initializeComparisonValues()
