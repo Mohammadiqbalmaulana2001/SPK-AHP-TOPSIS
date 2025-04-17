@@ -83,9 +83,9 @@ class AlternatifResource extends Resource
     {
         return [
             'index' => Pages\ListAlternatifs::route('/'),
-            'create' => Pages\CreateAlternatif::route('/create'),
+            // 'create' => Pages\CreateAlternatif::route('/create'),
             // 'view' => Pages\ViewAlternatif::route('/{record}'),
-            'edit' => Pages\EditAlternatif::route('/{record}/edit'),
+            // 'edit' => Pages\EditAlternatif::route('/{record}/edit'),
         ];
     }
 }

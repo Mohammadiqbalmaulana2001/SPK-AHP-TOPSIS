@@ -8,6 +8,7 @@ use App\Models\Kriteria;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
+
 class ListKriterias extends ListRecords
 {
     protected static string $resource = KriteriaResource::class;
@@ -18,11 +19,12 @@ class ListKriterias extends ListRecords
             Actions\CreateAction::make()
                 ->label('New kriteria'),
             Actions\Action::make('calculate_ahp')
-                ->label('Hitung AHP Kriteria')
+                ->label('Pembobotan AHP')
                 ->icon('heroicon-o-calculator')
                 ->color('info')
                 ->url(fn (): string => AHPKriteriaComparison::getUrl())
                 ->visible(fn () => Kriteria::count() >= 2),
         ];
     }
+    
 }
