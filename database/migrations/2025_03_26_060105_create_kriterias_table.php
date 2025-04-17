@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('kode')->unique();
             $table->string('nama');
-            $table->decimal('bobot');
+            $table->decimal('bobot')->default(0);
             $table->enum('tipe', ['benefit', 'cost'])->default('benefit');
             $table->timestamps();
         });

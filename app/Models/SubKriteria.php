@@ -16,7 +16,7 @@ class SubKriteria extends Model
         'kode',
         'nama', 
         'bobot',
-        'nilai'
+        'bobot_global'
     ];
 
     public function kriteria(): BelongsTo

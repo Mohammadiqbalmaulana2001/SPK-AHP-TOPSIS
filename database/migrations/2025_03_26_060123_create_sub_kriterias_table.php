@@ -16,8 +16,8 @@ return new class extends Migration
             $table->enum('tipe', ['benefit', 'cost'])->default('benefit');
             $table->string('kode')->unique();
             $table->string('nama');
-            $table->decimal('bobot');
-            $table->decimal('nilai', 10, 2)->nullable();
+            $table->decimal('bobot')->default(0);
+            $table->decimal('bobot_global')->default(0);
             $table->timestamps();
         });
     }

@@ -54,12 +54,6 @@ class SubKriteriaResource extends Resource
                         'cost' => 'Cost',
                     ])
                     ->required(),
-                Forms\Components\TextInput::make('nilai')
-                    ->label('Nilai')
-                    ->numeric()
-                    ->minValue(0)
-                    ->step(0.01)
-                    ->helperText('Nilai numerik dari sub kriteria ini'),
             ]);
     }
 
@@ -88,9 +82,9 @@ class SubKriteriaResource extends Resource
                     ->label('Bobot')
                     ->numeric(decimalPlaces: 4)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('nilai')
-                    ->label('Nilai')
-                    ->numeric()
+                Tables\Columns\TextColumn::make('bobot_global')
+                    ->label('Bobot Global')
+                    ->numeric(decimalPlaces: 4)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Dibuat Pada')
