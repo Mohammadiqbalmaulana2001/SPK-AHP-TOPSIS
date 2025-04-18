@@ -5,113 +5,211 @@ namespace App\Services;
 use App\Models\Alternatif;
 use App\Models\Kriteria;
 use App\Models\Penilaian;
-use Illuminate\Support\Collection;
+use App\Models\SubKriteria;
+use Illuminate\Support\Facades\DB;
 
-class TopsisService
+class TOPSISService
 {
-    protected Collection $kriterias;
-    protected Collection $alternatifs;
-
-    public function __construct()
+    public function process()
     {
-        $this->kriterias = Kriteria::with('subKriterias')->get();
-        $this->alternatifs = Alternatif::with('penilaians.subKriteria')->get();
+        // Get all data
+        $alternatifs = Alternatif::all();
+        $kriterias = Kriteria::all();
+        $subKriterias = SubKriteria::all();
+        
+        if ($alternatifs->isEmpty() || $kriterias->isEmpty() || $subKriterias->isEmpty()) {
+            throw new \Exception("Data alternatif, kriteria, atau subkriteria kosong");
+        }
+        
+        // Get data matrix
+        $decisionMatrix = $this->createDecisionMatrix($alternatifs, $subKriterias);
+        
+        if (empty($decisionMatrix)) {
+            throw new \Exception("Data penilaian tidak ditemukan atau tidak lengkap");
+        }
+        
+        // Langkah 1: Normalisasi matrix keputusan
+        $normalizedMatrix = $this->normalizeDecisionMatrix($decisionMatrix);
+        
+        // Langkah 2: Menghitung matrix keputusan normalisasi terbobot
+        $weightedMatrix = $this->calculateWeightedNormalizedMatrix($normalizedMatrix, $subKriterias);
+        
+        // Langkah 3: Menentukan solusi ideal positif dan negatif
+        $idealSolutions = $this->determineIdealSolutions($weightedMatrix, $subKriterias);
+        
+        // Langkah 4: Menghitung jarak setiap alternatif dari solusi ideal positif dan negatif
+        $distances = $this->calculateDistances($weightedMatrix, $idealSolutions);
+        
+        // Langkah 5: Menghitung nilai preferensi untuk setiap alternatif
+        $preferenceValues = $this->calculatePreferenceValues($distances);
+        
+        // Menggabungkan hasil dengan alternatif
+        $results = $this->combineResults($alternatifs, $preferenceValues);
+        
+        return [
+            'alternatifs' => $alternatifs,
+            'kriterias' => $kriterias,
+            'subKriterias' => $subKriterias,
+            'decisionMatrix' => $decisionMatrix,
+            'normalizedMatrix' => $normalizedMatrix,
+            'weightedMatrix' => $weightedMatrix,
+            'idealSolutions' => $idealSolutions,
+            'distances' => $distances,
+            'preferenceValues' => $preferenceValues,
+            'results' => $results,
+        ];
     }
-
-    public function calculate(): array
+    
+    protected function createDecisionMatrix($alternatifs, $subKriterias)
     {
-        $decisionMatrix = [];
-        $weights = [];
-        $types = [];
-
-        // Step 1: Membuat matriks keputusan awal
-        foreach ($this->alternatifs as $alt) {
-            $decisionMatrix[$alt->id] = [];
-
-            foreach ($this->kriterias as $kriteria) {
-                $nilai = $alt->penilaians->first(function ($p) use ($kriteria) {
-                    return $p->subKriteria->kriteria_id == $kriteria->id;
-                })?->subKriteria?->nilai ?? 0;
-
-                $decisionMatrix[$alt->id][$kriteria->id] = $nilai;
+        $matrix = [];
+        
+        foreach ($alternatifs as $alternatif) {
+            $row = [];
+            foreach ($subKriterias as $subKriteria) {
+                $penilaian = Penilaian::where('alternatif_id', $alternatif->id)
+                    ->where('sub_kriteria_id', $subKriteria->id)
+                    ->first();
+                
+                $row[$subKriteria->id] = $penilaian ? $penilaian->nilai : 0;
             }
-
-            $alt->nama_alt = $alt->nama;
+            $matrix[$alternatif->id] = $row;
         }
-
-        // Step 2: Normalisasi
-        $normalizationDivisor = [];
-        foreach ($this->kriterias as $kriteria) {
-            $sumSquares = 0;
-            foreach ($decisionMatrix as $row) {
-                $sumSquares += pow($row[$kriteria->id], 2);
-            }
-            $normalizationDivisor[$kriteria->id] = sqrt($sumSquares);
-        }
-
+        
+        return $matrix;
+    }
+    
+    protected function normalizeDecisionMatrix($decisionMatrix)
+    {
         $normalizedMatrix = [];
-        foreach ($decisionMatrix as $altId => $row) {
-            foreach ($row as $kriteriaId => $value) {
-                $normalizedMatrix[$altId][$kriteriaId] = $normalizationDivisor[$kriteriaId] == 0
-                    ? 0
-                    : $value / $normalizationDivisor[$kriteriaId];
+        $squareSums = [];
+        
+        foreach ($decisionMatrix as $alternatifId => $row) {
+            foreach ($row as $subKriteriaId => $value) {
+                if (!isset($squareSums[$subKriteriaId])) {
+                    $squareSums[$subKriteriaId] = 0;
+                }
+                $squareSums[$subKriteriaId] += pow($value, 2);
             }
         }
-
-        // Step 3: Matriks keputusan ternormalisasi terbobot
-        foreach ($this->kriterias as $kriteria) {
-            $weights[$kriteria->id] = $kriteria->bobot;
-            $types[$kriteria->id] = $kriteria->tipe;
+        
+        foreach ($decisionMatrix as $alternatifId => $row) {
+            $normalizedRow = [];
+            foreach ($row as $subKriteriaId => $value) {
+                $denominator = sqrt($squareSums[$subKriteriaId]);
+                $normalizedRow[$subKriteriaId] = $denominator > 0 ? $value / $denominator : 0;
+            }
+            $normalizedMatrix[$alternatifId] = $normalizedRow;
         }
-
+        
+        return $normalizedMatrix;
+    }
+    
+    protected function calculateWeightedNormalizedMatrix($normalizedMatrix, $subKriterias)
+    {
         $weightedMatrix = [];
-        foreach ($normalizedMatrix as $altId => $row) {
-            foreach ($row as $kriteriaId => $value) {
-                $weightedMatrix[$altId][$kriteriaId] = $value * $weights[$kriteriaId];
+        
+        foreach ($normalizedMatrix as $alternatifId => $row) {
+            $weightedRow = [];
+            foreach ($row as $subKriteriaId => $value) {
+                $subKriteria = $subKriterias->firstWhere('id', $subKriteriaId);
+                $weight = $subKriteria ? ($subKriteria->bobot_global / 100) : 0;
+                $weightedRow[$subKriteriaId] = $value * $weight;
             }
+            $weightedMatrix[$alternatifId] = $weightedRow;
         }
-
-        // Step 4: Solusi ideal positif & negatif
-        $idealPos = [];
-        $idealNeg = [];
-        foreach ($this->kriterias as $kriteria) {
-            $column = array_column(array_map(fn ($row) => $row[$kriteria->id], $weightedMatrix), null);
-            if ($types[$kriteria->id] === 'benefit') {
-                $idealPos[$kriteria->id] = max($column);
-                $idealNeg[$kriteria->id] = min($column);
+        
+        return $weightedMatrix;
+    }
+    
+    protected function determineIdealSolutions($weightedMatrix, $subKriterias)
+    {
+        $positiveIdeal = [];
+        $negativeIdeal = [];
+        
+        foreach ($subKriterias as $subKriteria) {
+            $values = [];
+            foreach ($weightedMatrix as $row) {
+                $values[] = $row[$subKriteria->id];
+            }
+            
+            $kriteria = $subKriteria->kriteria;
+            
+            if ($kriteria->tipe === 'benefit') {
+                $positiveIdeal[$subKriteria->id] = max($values);
+                $negativeIdeal[$subKriteria->id] = min($values);
             } else {
-                $idealPos[$kriteria->id] = min($column);
-                $idealNeg[$kriteria->id] = max($column);
+                $positiveIdeal[$subKriteria->id] = min($values);
+                $negativeIdeal[$subKriteria->id] = max($values);
             }
         }
-
-        // Step 5: Hitung jarak ke solusi ideal
-        $results = [];
-        foreach ($weightedMatrix as $altId => $row) {
-            $dPlus = 0;
-            $dMin = 0;
-
-            foreach ($row as $kriteriaId => $value) {
-                $dPlus += pow($value - $idealPos[$kriteriaId], 2);
-                $dMin += pow($value - $idealNeg[$kriteriaId], 2);
+        
+        return [
+            'positive' => $positiveIdeal,
+            'negative' => $negativeIdeal
+        ];
+    }
+    
+    protected function calculateDistances($weightedMatrix, $idealSolutions)
+    {
+        $positiveDistances = [];
+        $negativeDistances = [];
+        
+        foreach ($weightedMatrix as $alternatifId => $row) {
+            $positiveSum = 0;
+            $negativeSum = 0;
+            
+            foreach ($row as $subKriteriaId => $value) {
+                $positiveSum += pow($value - $idealSolutions['positive'][$subKriteriaId], 2);
+                $negativeSum += pow($value - $idealSolutions['negative'][$subKriteriaId], 2);
             }
-
-            $dPlus = sqrt($dPlus);
-            $dMin = sqrt($dMin);
-            $score = $dPlus + $dMin == 0 ? 0 : $dMin / ($dPlus + $dMin);
-
+            
+            $positiveDistances[$alternatifId] = sqrt($positiveSum);
+            $negativeDistances[$alternatifId] = sqrt($negativeSum);
+        }
+        
+        return [
+            'positive' => $positiveDistances,
+            'negative' => $negativeDistances
+        ];
+    }
+    
+    protected function calculatePreferenceValues($distances)
+    {
+        $preferenceValues = [];
+        
+        foreach ($distances['positive'] as $alternatifId => $positiveDistance) {
+            $negativeDistance = $distances['negative'][$alternatifId];
+            $totalDistance = $positiveDistance + $negativeDistance;
+            
+            $preferenceValues[$alternatifId] = $totalDistance > 0 ? $negativeDistance / $totalDistance : 0;
+        }
+        
+        return $preferenceValues;
+    }
+    
+    protected function combineResults($alternatifs, $preferenceValues)
+    {
+        $results = [];
+        
+        foreach ($alternatifs as $alternatif) {
             $results[] = [
-                'alternatif_id' => $altId,
-                'nama' => Alternatif::find($altId)->nama,
-                'nilai_preferensi' => round($score, 4),
-                'd_plus' => round($dPlus, 4),
-                'd_minus' => round($dMin, 4)
+                'id' => $alternatif->id,
+                'kode' => $alternatif->kode,
+                'nama' => $alternatif->nama,
+                'preference_value' => $preferenceValues[$alternatif->id],
             ];
         }
-
-        // Step 6: Urutkan
-        usort($results, fn($a, $b) => $b['nilai_preferensi'] <=> $a['nilai_preferensi']);
-
+        
+        usort($results, function($a, $b) {
+            return $b['preference_value'] <=> $a['preference_value'];
+        });
+        
+        $rank = 1;
+        foreach ($results as &$result) {
+            $result['rank'] = $rank++;
+        }
+        
         return $results;
     }
 }

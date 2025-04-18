@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PenilaianResource\Pages;
 
+use App\Filament\Pages\TOPSISCalculation;
 use App\Filament\Resources\PenilaianResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -13,7 +14,14 @@ class ListPenilaians extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\Action::make('topsis')
+                ->label('Perhitungan TOPSIS')
+                ->icon('heroicon-o-calculator')
+                ->color('info')
+                ->url(fn (): string => TOPSISCalculation::getUrl()),
+            Actions\CreateAction::make()
+                ->label('Tambah Penilaian'),
         ];
     }
+    
 }

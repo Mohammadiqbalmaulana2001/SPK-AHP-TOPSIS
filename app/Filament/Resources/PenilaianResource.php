@@ -14,28 +14,47 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
 
 class PenilaianResource extends Resource
 {
     protected static ?string $model = Penilaian::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-    
+
     protected static ?string $navigationLabel = 'Penilaian';
-    
+
     protected static ?string $navigationGroup = 'Penilaian';
-    
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
+        $isEdit = $form->getRecord() !== null;
+
         return $form
             ->schema([
                 Forms\Components\Select::make('alternatif_id')
                     ->label('Alternatif')
                     ->options(Alternatif::all()->pluck('nama', 'id'))
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->rules([
+                        function (callable $get) use ($isEdit, $form) {
+                            if ($isEdit) {
+                                return Rule::unique('penilaians', 'alternatif_id')
+                                    ->where('sub_kriteria_id', $get('sub_kriteria_id'))
+                                    ->ignore($form->getRecord()->id);
+                            }
+
+                            return Rule::unique('penilaians', 'alternatif_id')
+                                ->where('sub_kriteria_id', $get('sub_kriteria_id'));
+                        }
+                    ])
+                    ->validationMessages([
+                        'unique' => 'Kombinasi Alternatif dan Sub Kriteria ini sudah ada.',
+                    ]),
+
                 Forms\Components\Select::make('sub_kriteria_id')
                     ->label('Sub Kriteria')
                     ->options(function () {
@@ -45,7 +64,15 @@ class PenilaianResource extends Resource
                             ->pluck('full_name', 'sub_kriterias.id');
                     })
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function (Forms\Components\Select $component) {
+                        $alternatifComponent = $component->getContainer()->getComponent('alternatif_id');
+                        if ($alternatifComponent) {
+                            $alternatifComponent->validate();
+                        }
+                    }),
+
                 Forms\Components\TextInput::make('nilai')
                     ->required()
                     ->numeric()
@@ -123,9 +150,8 @@ class PenilaianResource extends Resource
     {
         return [
             'index' => Pages\ListPenilaians::route('/'),
-            'create' => Pages\CreatePenilaian::route('/create'),
-            // 'view' => Pages\ViewPenilaian::route('/{record}'),
-            'edit' => Pages\EditPenilaian::route('/{record}/edit'),
+            // 'create' => Pages\CreatePenilaian::route('/create'),
+            // 'edit' => Pages\EditPenilaian::route('/{record}/edit'),
         ];
     }
 }
