@@ -6,16 +6,103 @@
                 untuk Kriteria: {{ $kriteria->nama }}
             @endif
         </h2>
+        
         <p class="my-6 py-4">Metode Analytical Hierarchy Process (AHP) digunakan untuk menentukan bobot subkriteria berdasarkan perbandingan berpasangan.</p>
         
-        {{ $this->form }}
+        <!-- Pilihan Kriteria -->
+        <div class="mb-6">
+            <x-filament::input.wrapper
+                :id="$this->getId('kriteria')"
+                label="Pilih Kriteria"
+                required="true"
+            >
+                <x-filament::input.select
+                    wire:model.live="selectedKriteriaId"
+                    :placeholder="__('Pilih kriteria')"
+                >
+                    <option value="">Pilih Kriteria</option>
+                    @foreach(\App\Models\Kriteria::all() as $k)
+                        <option value="{{ $k->id }}">{{ $k->nama }}</option>
+                    @endforeach
+                </x-filament::input.select>
+            </x-filament::input.wrapper>
+        </div>
         
-        @if($selectedKriteriaId)
-            <div class="py-4">
-                <x-filament::button wire:click="calculate" icon="heroicon-o-calculator">
-                    Hitung Bobot Subkriteria
-                </x-filament::button>
+        @if($selectedKriteriaId && !$kriteria)
+            <div class="py-2 px-4 bg-yellow-50 text-yellow-700 rounded-md">
+                Kriteria tidak ditemukan. Silakan pilih kriteria lain.
             </div>
+        @endif
+        
+        @if($kriteria)
+            @if(count($subKriterias) < 2)
+                <div class="py-2 px-4 bg-yellow-50 text-yellow-700 rounded-md">
+                    Minimal 2 subkriteria diperlukan untuk melakukan perbandingan.
+                </div>
+            @else
+                <!-- Form Perbandingan -->
+                <div class="my-6">
+                    <h3 class="text-lg font-semibold mb-4 py-8">Perbandingan Berpasangan Subkriteria</h3>
+                    
+                    @foreach($comparisonValues as $key => $comparison)
+                        @php
+                            $parts = explode('_', $key);
+                            $subkriteria1 = $subKriterias->firstWhere('id', $parts[0]);
+                            $subkriteria2 = $subKriterias->firstWhere('id', $parts[1]);
+                            
+                            // Skip invalid comparisons
+                            if(!$subkriteria1 || !$subkriteria2) continue;
+                        @endphp
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-center mb-4">
+                            <div class="text-right font-medium">{{ $subkriteria1->nama }}</div>
+                            
+                            <div>
+                                <x-filament::input.wrapper :id="$this->getId('comparison-' . $key)">
+                                    <x-filament::input.select wire:model.live="comparisonValues.{{ $key }}.nilai">
+                                        <option value="9">9 - Mutlak lebih penting</option>
+                                        <option value="8">8 - Sangat lebih penting</option>
+                                        <option value="7">7 - Lebih penting</option>
+                                        <option value="6">6 - Cukup lebih penting</option>
+                                        <option value="5">5 - Lebih penting</option>
+                                        <option value="4">4 - Sedikit lebih penting</option>
+                                        <option value="3">3 - Cukup penting</option>
+                                        <option value="2">2 - Sedikit penting</option>
+                                        <option value="1">1 - Sama penting</option>
+                                        <option value="0.5">1/2 - Sedikit kurang penting</option>
+                                        <option value="0.33333333333333">1/3 - Cukup kurang penting</option>
+                                        <option value="0.25">1/4 - Sedikit kurang penting</option>
+                                        <option value="0.2">1/5 - Kurang penting</option>
+                                        <option value="0.16666666666667">1/6 - Cukup kurang penting</option>
+                                        <option value="0.14285714285714">1/7 - Kurang penting</option>
+                                        <option value="0.125">1/8 - Sangat kurang penting</option>
+                                        <option value="0.11111111111111">1/9 - Mutlak kurang penting</option>
+                                    </x-filament::input.select>
+                                </x-filament::input.wrapper>
+                            </div>
+                            
+                            <div class="font-medium">{{ $subkriteria2->nama }}</div>
+                            
+                            <div class="md:col-start-2 flex items-center justify-center">
+                                <x-filament::input.wrapper :id="$this->getId('inverse-' . $key)">
+                                    {{-- <label class="flex items-center">
+                                        <x-filament::input.checkbox
+                                            wire:model.live="comparisonValues.{{ $key }}.inverse"
+                                        />
+                                        <span class="ml-2">Balik Perbandingan</span>
+                                    </label> --}}
+                                </x-filament::input.wrapper>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                
+                <div class="py-4">
+                    <x-filament::button wire:click="calculate" icon="heroicon-o-calculator">
+                        Hitung Bobot Subkriteria
+                    </x-filament::button>
+                </div>
+            @endif
         @endif
         
         @if ($ahpResults)

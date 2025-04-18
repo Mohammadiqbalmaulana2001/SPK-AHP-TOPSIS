@@ -16,17 +16,13 @@ use App\Filament\Resources\SubKriteriaResource;
 class AHPSubkriteriaComparison extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-calculator';
-    
     protected static ?string $navigationLabel = 'Perbandingan Subkriteria (AHP)';
-    
     protected static ?string $title = 'Pembobotan Subkriteria dengan Metode AHP';
-    
     protected static bool $shouldRegisterNavigation = false;
-    
     protected static string $view = 'filament.pages.ahp-subkriteria-comparison';
     
     public $kriteriaId;
-    public $kriteria;
+    public $kriteria = null;
     public $subKriterias = [];
     public $comparisonValues = [];
     public $ahpResults = null;
@@ -43,10 +39,32 @@ class AHPSubkriteriaComparison extends Page
     
     public function loadKriteria($kriteriaId)
     {
-        $this->kriteriaId = $kriteriaId;
-        $this->kriteria = Kriteria::findOrFail($kriteriaId);
-        $this->subKriterias = SubKriteria::where('kriteria_id', $kriteriaId)->get();
-        $this->initializeComparisonValues();
+        try {
+            $this->kriteriaId = $kriteriaId;
+            $this->kriteria = Kriteria::find($kriteriaId);
+            
+            if (!$this->kriteria) {
+                throw new \Exception("Kriteria tidak ditemukan");
+            }
+            
+            $this->subKriterias = SubKriteria::where('kriteria_id', $kriteriaId)->get();
+            $this->initializeComparisonValues();
+            $this->ahpResults = null;
+        } catch (\Exception $e) {
+            $this->resetKriteriaData();
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->warning()
+                ->send();
+        }
+    }
+    
+    protected function resetKriteriaData()
+    {
+        $this->kriteria = null;
+        $this->subKriterias = [];
+        $this->comparisonValues = [];
         $this->ahpResults = null;
     }
     
@@ -66,15 +84,27 @@ class AHPSubkriteriaComparison extends Page
     protected function initializeComparisonValues()
     {
         $this->comparisonValues = [];
-        $subKriterias = $this->subKriterias;
         
-        for ($i = 0; $i < count($subKriterias); $i++) {
-            for ($j = $i + 1; $j < count($subKriterias); $j++) {
-                $key = $subKriterias[$i]->id . '_' . $subKriterias[$j]->id;
+        if ($this->subKriterias->count() < 2) {
+            return;
+        }
+        
+        $subKriteriaIds = $this->subKriterias->pluck('id')->toArray();
+        
+        for ($i = 0; $i < count($this->subKriterias); $i++) {
+            for ($j = $i + 1; $j < count($this->subKriterias); $j++) {
+                $sub1 = $this->subKriterias[$i];
+                $sub2 = $this->subKriterias[$j];
+                
+                if (!in_array($sub1->id, $subKriteriaIds) || !in_array($sub2->id, $subKriteriaIds)) {
+                    continue;
+                }
+                
+                $key = $sub1->id . '_' . $sub2->id;
                 $this->comparisonValues[$key] = [
-                    'subkriteria1_id' => $subKriterias[$i]->id,
-                    'subkriteria2_id' => $subKriterias[$j]->id,
-                    'nilai' => 1, // Nilai default
+                    'subkriteria1_id' => $sub1->id,
+                    'subkriteria2_id' => $sub2->id,
+                    'nilai' => 1,
                     'inverse' => false
                 ];
             }
@@ -85,7 +115,6 @@ class AHPSubkriteriaComparison extends Page
     {
         $fieldGroups = [];
         
-        // Tambahkan pemilihan kriteria di form
         $fieldGroups[] = Forms\Components\Section::make('Pilih Kriteria')
             ->schema([
                 Forms\Components\Select::make('selectedKriteriaId')
@@ -96,18 +125,24 @@ class AHPSubkriteriaComparison extends Page
                     ->afterStateUpdated(function ($state) {
                         if ($state) {
                             $this->loadKriteria($state);
+                        } else {
+                            $this->resetKriteriaData();
                         }
                     }),
             ]);
         
-        if (!$this->selectedKriteriaId) {
+        if (!$this->selectedKriteriaId || !$this->kriteria) {
+            $fieldGroups[] = Forms\Components\Section::make('Perbandingan Subkriteria')
+                ->schema([
+                    Forms\Components\Placeholder::make('info')
+                        ->content('Silakan pilih kriteria terlebih dahulu untuk melakukan perbandingan subkriteria.')
+                        ->columnSpanFull(),
+                ]);
+            
             return $form->schema($fieldGroups);
         }
         
-        $subKriterias = $this->subKriterias;
-        
-        // PERUBAHAN: Kondisi menjadi < 2
-        if (count($subKriterias) < 2) {
+        if ($this->subKriterias->count() < 2) {
             $fieldGroups[] = Forms\Components\Section::make('Perbandingan Subkriteria')
                 ->schema([
                     Forms\Components\Placeholder::make('info')
@@ -120,49 +155,38 @@ class AHPSubkriteriaComparison extends Page
         
         $fields = [];
         
-        for ($i = 0; $i < count($subKriterias); $i++) {
-            for ($j = $i + 1; $j < count($subKriterias); $j++) {
-                $key = $subKriterias[$i]->id . '_' . $subKriterias[$j]->id;
-                
-                $fields[] = Forms\Components\Grid::make(3)
-                    ->schema([
-                        Forms\Components\Placeholder::make("subkriteria_left_{$key}")
-                            ->content($subKriterias[$i]->nama)
-                            ->extraAttributes(['class' => 'text-right font-bold']),
-                            
-                        Forms\Components\Select::make("comparisonValues.{$key}.nilai")
-                            ->options([
-                                9 => '9 - Mutlak lebih penting',
-                                8 => '8 - Sangat lebih penting',
-                                7 => '7 - Lebih penting',
-                                6 => '6 - Cukup lebih penting',
-                                5 => '5 - Lebih penting',
-                                4 => '4 - Sedikit lebih penting',
-                                3 => '3 - Cukup penting',
-                                2 => '2 - Sedikit penting',
-                                1 => '1 - Sama penting',
-                                1/2 => '1/2 - Sedikit kurang penting',
-                                1/3 => '1/3 - Cukup kurang penting',
-                                1/4 => '1/4 - Sedikit kurang penting',
-                                1/5 => '1/5 - Kurang penting',
-                                1/6 => '1/6 - Cukup kurang penting',
-                                1/7 => '1/7 - Kurang penting',
-                                1/8 => '1/8 - Sangat kurang penting',
-                                1/9 => '1/9 - Mutlak kurang penting',
-                            ])
-                            ->default(1)
-                            ->reactive()
-                            ->live(),
-                            
-                        Forms\Components\Placeholder::make("subkriteria_right_{$key}")
-                            ->content($subKriterias[$j]->nama)
-                            ->extraAttributes(['class' => 'font-bold']),
-                            
-                        Forms\Components\Toggle::make("comparisonValues.{$key}.inverse")
-                            ->label("Balik Perbandingan")
-                            ->columnSpanFull(),
-                    ]);
+        foreach ($this->comparisonValues as $key => $comparison) {
+            $parts = explode('_', $key);
+            $sub1 = $this->subKriterias->firstWhere('id', $parts[0]);
+            $sub2 = $this->subKriterias->firstWhere('id', $parts[1]);
+            
+            if (!$sub1 || !$sub2) {
+                continue;
             }
+            
+            $fields[] = Forms\Components\Grid::make(3)
+                ->schema([
+                    Forms\Components\Placeholder::make("subkriteria_left_{$key}")
+                        ->content($sub1->nama)
+                        ->extraAttributes(['class' => 'text-right font-bold']),
+                        
+                    Forms\Components\Select::make("comparisonValues.{$key}.nilai")
+                        ->options([
+                            9 => '9 - Mutlak lebih penting',
+                            8 => '8 - Sangat lebih penting',
+                            // ... opsi lainnya ...
+                            0.11111111111111 => '1/9 - Mutlak kurang penting',
+                        ])
+                        ->default(1),
+                        
+                    Forms\Components\Placeholder::make("subkriteria_right_{$key}")
+                        ->content($sub2->nama)
+                        ->extraAttributes(['class' => 'font-bold']),
+                        
+                    Forms\Components\Toggle::make("comparisonValues.{$key}.inverse")
+                        ->label("Balik Perbandingan")
+                        ->columnSpanFull(),
+                ]);
         }
         
         $fieldGroups[] = Forms\Components\Section::make('Perbandingan Subkriteria')
@@ -174,30 +198,45 @@ class AHPSubkriteriaComparison extends Page
     
     public function calculate()
     {
-        if (!$this->selectedKriteriaId) {
+        if (!$this->selectedKriteriaId || !$this->kriteria) {
             Notification::make()
-                ->title('Pilih kriteria terlebih dahulu')
+                ->title('Pilih kriteria yang valid terlebih dahulu')
+                ->warning()
+                ->send();
+            return;
+        }
+        
+        if ($this->subKriterias->count() < 2) {
+            Notification::make()
+                ->title('Minimal 2 subkriteria diperlukan untuk melakukan perbandingan')
                 ->warning()
                 ->send();
             return;
         }
         
         try {
-            // Konversi data form ke format yang dibutuhkan AHPSubkriteriaService
             $pairwiseValues = [];
             $subKriteriaIds = $this->subKriterias->pluck('id')->toArray();
             
             foreach ($this->comparisonValues as $key => $comparison) {
                 $parts = explode('_', $key);
+                if (count($parts) !== 2) continue;
+                
                 $subkriteria1_id = (int)$parts[0];
                 $subkriteria2_id = (int)$parts[1];
+                
+                if (!in_array($subkriteria1_id, $subKriteriaIds) || 
+                    !in_array($subkriteria2_id, $subKriteriaIds)) {
+                    continue;
+                }
+                
                 $nilai = (float)$comparison['nilai'];
                 
-                // Jika inverse true, balik nilai perbandingan
                 if ($comparison['inverse']) {
                     $temp = $subkriteria1_id;
                     $subkriteria1_id = $subkriteria2_id;
                     $subkriteria2_id = $temp;
+                    $nilai = 1/$nilai;
                 }
                 
                 $pairwiseValues[] = [
@@ -207,18 +246,15 @@ class AHPSubkriteriaComparison extends Page
                 ];
             }
             
-            // Hitung dengan AHP Service
             $ahpService = new AHPSubkriteriaService();
             $this->ahpResults = $ahpService->process($pairwiseValues, $subKriteriaIds);
             
-            // Hitung bobot global
-            $kriteriaWeight = $this->kriteria->bobot / 100; // Konversi dari persentase ke desimal
+            $kriteriaWeight = ($this->kriteria->bobot ?? 0) / 100;
             $this->ahpResults['global_weights'] = $ahpService->calculateGlobalWeights(
                 $this->ahpResults['weights'], 
                 $kriteriaWeight
             );
             
-            // Simpan hasil bobot subkriteria ke database
             $this->saveSubkriteriaWeights();
             
             Notification::make()
@@ -248,15 +284,26 @@ class AHPSubkriteriaComparison extends Page
                 $globalWeight = $this->ahpResults['global_weights'][$subKriteriaId];
                 
                 SubKriteria::where('id', $subKriteriaId)->update([
-                    'bobot' => $weight * 100, // Simpan dalam bentuk persentase
-                    'bobot_global' => $globalWeight * 100 // Simpan dalam bentuk persentase
+                    'bobot' => $weight * 100,
+                    'bobot_global' => $globalWeight * 100
                 ]);
             }
             
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            throw $e;
+            Notification::make()
+                ->title('Gagal menyimpan bobot')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+    
+    public function beforeRender(): void
+    {
+        if ($this->selectedKriteriaId && !$this->kriteria) {
+            $this->loadKriteria($this->selectedKriteriaId);
         }
     }
 }
