@@ -11,6 +11,10 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Filament\Actions\Action;
 use App\Filament\Resources\KriteriaResource;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use Carbon\Carbon;
+use App\Exports\AHPResultsExport;
 
 class AHPKriteriaComparison extends Page
 {
@@ -44,6 +48,20 @@ class AHPKriteriaComparison extends Page
                 ->icon('heroicon-o-arrow-left')
                 ->url(fn (): string => KriteriaResource::getUrl('index'))
                 ->color('secondary'),
+                
+            // Action::make('exportPDF')
+            //     ->label('Ekspor PDF')
+            //     ->icon('heroicon-o-document-arrow-down')
+            //     ->action('exportToPDF')
+            //     ->visible(fn () => $this->ahpResults !== null)
+            //     ->color('success'),
+                
+            // Action::make('exportExcel')
+            //     ->label('Ekspor Excel')
+            //     ->icon('heroicon-o-table-cells')
+            //     ->action('exportToExcel')
+            //     ->visible(fn () => $this->ahpResults !== null)
+            //     ->color('primary'),
         ];
     }
     
@@ -210,5 +228,47 @@ class AHPKriteriaComparison extends Page
             DB::rollBack();
             throw $e;
         }
+    }
+    
+    public function exportToPDF()
+    {
+        if (!$this->ahpResults) {
+            Notification::make()
+                ->title('Tidak ada hasil untuk diekspor')
+                ->warning()
+                ->send();
+            return;
+        }
+        
+        $kriterias = $this->kriterias;
+        $ahpResults = $this->ahpResults;
+        $tanggal = Carbon::now()->format('d-m-Y H:i:s');
+        
+        $pdf = PDF::loadView('exports.ahp-results-pdf', [
+            'kriterias' => $kriterias,
+            'ahpResults' => $ahpResults,
+            'tanggal' => $tanggal,
+        ]);
+        
+        $fileName = 'hasil-ahp-kriteria-' . Carbon::now()->format('Ymd-His') . '.pdf';
+        
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $fileName);
+    }
+    
+    public function exportToExcel()
+    {
+        if (!$this->ahpResults) {
+            Notification::make()
+                ->title('Tidak ada hasil untuk diekspor')
+                ->warning()
+                ->send();
+            return;
+        }
+        
+        $fileName = 'hasil-ahp-kriteria-' . Carbon::now()->format('Ymd-His') . '.xlsx';
+        
+        return Excel::download(new AHPResultsExport($this->kriterias, $this->ahpResults), $fileName);
     }
 }
