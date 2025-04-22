@@ -48,20 +48,6 @@ class AHPKriteriaComparison extends Page
                 ->icon('heroicon-o-arrow-left')
                 ->url(fn (): string => KriteriaResource::getUrl('index'))
                 ->color('secondary'),
-                
-            // Action::make('exportPDF')
-            //     ->label('Ekspor PDF')
-            //     ->icon('heroicon-o-document-arrow-down')
-            //     ->action('exportToPDF')
-            //     ->visible(fn () => $this->ahpResults !== null)
-            //     ->color('success'),
-                
-            // Action::make('exportExcel')
-            //     ->label('Ekspor Excel')
-            //     ->icon('heroicon-o-table-cells')
-            //     ->action('exportToExcel')
-            //     ->visible(fn () => $this->ahpResults !== null)
-            //     ->color('primary'),
         ];
     }
     
@@ -122,14 +108,14 @@ class AHPKriteriaComparison extends Page
                                 3 => '3 - Cukup penting',
                                 2 => '2 - Sedikit penting',
                                 1 => '1 - Sama penting',
-                                1/2 => '1/2 - Sedikit kurang penting',
-                                1/3 => '1/3 - Cukup kurang penting',
-                                1/4 => '1/4 - Sedikit kurang penting',
-                                1/5 => '1/5 - Kurang penting',
-                                1/6 => '1/6 - Cukup kurang penting',
-                                1/7 => '1/7 - Kurang penting',
-                                1/8 => '1/8 - Sangat kurang penting',
-                                1/9 => '1/9 - Mutlak kurang penting',
+                                // 1/2 => '1/2 - Sedikit kurang penting',
+                                // 1/3 => '1/3 - Cukup kurang penting',
+                                // 1/4 => '1/4 - Sedikit kurang penting',
+                                // 1/5 => '1/5 - Kurang penting',
+                                // 1/6 => '1/6 - Cukup kurang penting',
+                                // 1/7 => '1/7 - Kurang penting',
+                                // 1/8 => '1/8 - Sangat kurang penting',
+                                // 1/9 => '1/9 - Mutlak kurang penting',
                             ])
                             ->default(1)
                             ->reactive()
@@ -142,7 +128,9 @@ class AHPKriteriaComparison extends Page
                                 }
                             }),
                             
-                        Forms\Components\Placeholder::make("kriteria_right_{$key}")
+
+                            
+                            Forms\Components\Placeholder::make("kriteria_right_{$key}")
                             ->content($kriterias[$j]->nama)
                             ->extraAttributes(['class' => 'font-bold']),
                             

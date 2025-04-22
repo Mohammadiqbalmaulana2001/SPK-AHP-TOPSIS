@@ -250,6 +250,25 @@
                     </div>
                 </div>
             </div>
+            <div class="flex justify-center gap-4 mt-6">
+                <x-filament::button 
+                    wire:click="exportToPDF" 
+                    icon="heroicon-o-document-arrow-down"
+                    color="danger"
+                    size="xs"
+                    class="text-xs px-2 py-2"
+                >
+                    Unduh PDF
+                </x-filament::button>
+                <x-filament::button 
+                    wire:click="exportToExcel" 
+                    icon="heroicon-o-table-cells"
+                    color="success"
+                    class="text-xs px-2 py-2"
+                    size="xs"
+                >
+                    Unduh Excel
+                </x-filament::button>
         @endif
     </x-filament::section>
 </x-filament::page>
